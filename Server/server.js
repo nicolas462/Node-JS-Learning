@@ -9,6 +9,8 @@ app.use(express.static(__dirname))
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({extended: false}))
 
+mongoose.Promise = Promise
+
 var dbUrl = 'mongodb+srv://root:6hIAiDdXJU8uQmae@cluster0.kzkr1.mongodb.net/myFirstDatabase?retryWrites=true&w=majority'
 
 //Entity
@@ -26,12 +28,21 @@ app.get('/messages', (req, res) =>{
 app.post('/messages', (req, res) =>{
     var message = new Message(req.body)
 
-    message.save((err) => {
-        if (err)
-            res.sendStatus(500)
-
+    message.save()
+    .then(() => {
+        return Message.findOne({message: 'badword'})
+    })
+    .then( censored => { //If it found it, catch it
+        if(censored) {
+            console.log('badword:',censored)
+            return Message.remove({_id: censored.id})
+        }
         io.emit('message', req.body)
-        res.sendStatus(200)  
+        res.sendStatus(200)
+    })
+    .catch((err) => {
+        res.sendStatus(500)
+        return console.error(err)
     })
 })
 
